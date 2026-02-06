@@ -1,0 +1,282 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. COBOL.
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+             SELECT TI001-INFILE ASSIGN TO INPMEDPS
+             ORGANIZATION IS SEQUENTIAL
+             ACCESS MODE IS SEQUENTIAL
+             FILE STATUS WS-INP.
+             SELECT TO001-OUTFILE1 ASSIGN TO OUTMEDPS
+             ORGANIZATION IS INDEXED
+             ACCESS MODE IS RANDOM
+             RECORD KEY OUT-MED-CODE
+             FILE STATUS WS-KSF.
+             SELECT TO002-OUTFILE2 ASSIGN TO OUTMEDS2
+             ORGANIZATION IS SEQUENTIAL
+             ACCESS MODE IS SEQUENTIAL
+             FILE STATUS WS-VAL.
+             SELECT TO003-OUTFILE3 ASSIGN TO OUTMEDER
+             ORGANIZATION IS SEQUENTIAL
+             ACCESS MODE IS SEQUENTIAL
+             FILE STATUS WS-ERR.
+       DATA DIVISION.
+       FILE SECTION.
+       FD TI001-INFILE.
+       01 TI001-INREC.
+           05 IN-MED-CODE      PIC X(03).
+           05 F                PIC X.
+           05 IN-DOSAGE        PIC X(01).
+           05 F                PIC X.
+           05 IN-QUANTITY      PIC 9(03).
+           05 F                PIC X.
+           05 IN-EXPIRY-STATUS PIC X(07).
+           05 F                PIC X.
+           05 IN-RATE-PER-NO   PIC 9(02).99.
+           05 F                PIC X(57).
+       FD TO001-OUTFILE1.
+       01 TO001-OUTREC.
+           05 OUT-MED-CODE          PIC X(03).
+           05 F                     PIC X.
+           05 OUT-QUANTITY          PIC 9(03).
+           05 F                     PIC X.
+           05 OUT-EXPIRY-STATUS     PIC X(07).
+           05 F                     PIC X.
+           05 OUT-ORDER-STATUS      PIC X(07).
+           05 F                     PIC X.
+           05 OUT-CLASS             PIC X(04).
+           05 F                     PIC X.
+           05 OUT-RATE-PER-NO       PIC 9(02).9(02).
+           05 F                     PIC X.
+           05 OUT-DISC-RATE-PER-NO  PIC 9(02).9(02).
+           05 F                     PIC X.
+           05 OUT-TOT-PRICE         PIC 9(05).9(02).
+           05 F                     PIC X(31).
+       FD TO002-OUTFILE2.
+       01 TO002-OUTREC.
+           05 VL-MED-CODE      PIC X(03).
+           05 F                PIC X.
+           05 VL-QUANTITY      PIC 9(03).
+           05 F                PIC X.
+           05 VL-EXPIRY-STATUS PIC X(07).
+           05 F                PIC X.
+           05 VL-ORDER-STATUS  PIC X(07).
+           05 F                PIC X.
+           05 VL-CLASS         PIC X(04).
+           05 F                PIC X.
+           05 VL-RATE-PER-NO   PIC 9(2).9(02).
+           05 F                PIC X.
+           05 VL-DISC-RATE     PIC 9(02).9(02).
+           05 F                PIC X.
+           05 VL-TOT-PRICE     PIC 9(05).9(02).
+           05 F                PIC X(31).
+       FD TO003-OUTFILE3.
+       01 TO003-OUTREC        PIC X(80).
+       WORKING-STORAGE SECTION.
+       01 WSS-STATUS.
+           05 WS-INP                PIC X(02).
+              88 END-OF-TI001     VALUE "10".
+              88 TI001-SUCC       VALUE "00".
+           05 WS-KSF                PIC X(02).
+              88 FS-KSDS-DUPKEY   VALUE "22".
+              88 TO001-SUCC       VALUE "00".
+           05 WS-VAL                PIC X(02).
+              88 END-OF-TO002     VALUE "10".
+              88 TO002-SUCC       VALUE "00".
+           05 WS-ERR                PIC X(02).
+              88 END-OF-TO003     VALUE "10".
+              88 TO003-SUCC       VALUE "00".
+       77 NEW-QUANTITY          PIC 9(03).
+       77 ORDER-STATUS          PIC X(07).
+       77 WS-CLASS              PIC X(04).
+       77 WS-DISC-RATE          PIC 9(02)V99.
+       77 WS-TOT-PRICE          PIC 9(05)V99.
+       77 WS-RATE-NUMERIC       PIC 9(02)V99.
+       PROCEDURE DIVISION.
+       0000-MAIN-PARA.
+              PERFORM 1000-INITIALIZE-PARA
+                 THRU 1000-INITIALIZE-PARA-EXIT.
+              PERFORM 2000-PROCESS-PARA
+                 THRU 2000-PROCESS-PARA-EXIT.
+              PERFORM 9000-TERMINATION-PARA
+                 THRU 9000-TERMINATION-PARA-EXIT.
+       0000-MAIN-PARA-EXIT.
+            EXIT.
+       1000-INITIALIZE-PARA.
+             INITIALIZE WS-INP WS-KSF WS-VAL WS-ERR.
+       1000-INITIALIZE-PARA-EXIT.
+            EXIT.
+       2000-PROCESS-PARA.
+             PERFORM 3000-OPEN-PARA
+                THRU 3000-OPEN-PARA-EXIT.
+             PERFORM 4000-READ-PARA
+                THRU 4000-READ-PARA-EXIT UNTIL END-OF-TI001.
+             PERFORM 6000-CLOSE-PARA
+                THRU 6000-CLOSE-PARA-EXIT.
+       2000-PROCESS-PARA-EXIT.
+            EXIT.
+       3000-OPEN-PARA.
+            OPEN INPUT TI001-INFILE
+                 OUTPUT TO001-OUTFILE1
+                 OUTPUT TO002-OUTFILE2
+                 OUTPUT TO003-OUTFILE3.
+                 EVALUATE TRUE
+                 WHEN TI001-SUCC AND TO001-SUCC
+                    AND TO002-SUCC AND TO003-SUCC
+                      DISPLAY " OPENED "
+                 WHEN OTHER
+                       DISPLAY " OPEN ERROR "  WS-INP WS-KSF WS-VAL
+                                        WS-ERR
+                       STOP RUN
+                 END-EVALUATE.
+       3000-OPEN-PARA-EXIT.
+            EXIT.
+       4000-READ-PARA.
+            READ TI001-INFILE.
+            EVALUATE TRUE
+               WHEN TI001-SUCC
+                 DISPLAY " READ SUCCESS"
+                 PERFORM 4200-VALIDATION-PARA
+                    THRU 4200-VALIDATION-PARA-EXIT
+               WHEN END-OF-TI001
+                 DISPLAY "END REACHED"
+               WHEN OTHER
+                 DISPLAY "READ FAILS" WS-INP
+                 PERFORM 6000-CLOSE-PARA
+                    THRU 6000-CLOSE-PARA-EXIT
+                  STOP RUN
+            END-EVALUATE.
+       4000-READ-PARA-EXIT.
+            EXIT.
+       4200-VALIDATION-PARA.
+               IF IN-MED-CODE = SPACES
+                  OR (IN-DOSAGE NOT = 'L' AND IN-DOSAGE NOT = 'M' AND
+                               IN-DOSAGE NOT = 'H')
+                  OR (IN-QUANTITY IS NOT NUMERIC)
+                  OR (IN-EXPIRY-STATUS NOT = 'EXP' AND
+                             IN-EXPIRY-STATUS NOT = 'NOT-EXP')
+                  OR (IN-RATE-PER-NO(1:2) IS NOT NUMERIC AND
+                         IN-RATE-PER-NO(4:2) IS NOT NUMERIC)
+                     WRITE TO003-OUTREC FROM TI001-INREC
+                  DISPLAY " VALIDATION"
+               END-IF
+                    PERFORM 4500-CALCULATION-PARA
+                       THRU 4500-CALCULATION-PARA-EXIT.
+       4200-VALIDATION-PARA-EXIT.
+            EXIT.
+       4500-CALCULATION-PARA.
+      *******STATUS CALCULATION*****
+            EVALUATE TRUE
+               WHEN IN-QUANTITY < 100 AND IN-EXPIRY-STATUS = 'NOT-EXP'
+                  MOVE 250             TO NEW-QUANTITY
+                  MOVE 'REORDER'       TO ORDER-STATUS
+               WHEN IN-QUANTITY < 100 AND IN-EXPIRY-STATUS = 'EXP'
+                  MOVE 50              TO NEW-QUANTITY
+                  MOVE 'REPLACE'       TO ORDER-STATUS
+               WHEN IN-QUANTITY > 100 AND IN-EXPIRY-STATUS = 'EXP'
+                  MOVE 0               TO NEW-QUANTITY
+                  MOVE 'STPSELL'       TO ORDER-STATUS
+               WHEN OTHER
+                  EXIT
+            END-EVALUATE.
+      *******CLASS CALCULATION*****
+            EVALUATE TRUE
+               WHEN IN-DOSAGE = 'L'
+                    MOVE 'SCH1' TO WS-CLASS
+               WHEN IN-DOSAGE = 'M'
+                    MOVE 'SCH2' TO WS-CLASS
+               WHEN IN-DOSAGE = 'H'
+                    MOVE 'SCH3' TO WS-CLASS
+               WHEN OTHER
+                    MOVE SPACES TO WS-CLASS
+            END-EVALUATE.
+      *******DISCOUNT RATE PER NO AND TOT PRICE CALCULATION*****
+              MOVE IN-RATE-PER-NO  TO WS-RATE-NUMERIC
+               COMPUTE WS-DISC-RATE = WS-RATE-NUMERIC - (WS-RATE-NUMERIC
+                         * 20 / 100).
+               COMPUTE WS-TOT-PRICE ROUNDED = NEW-QUANTITY *
+                         WS-DISC-RATE.
+                          PERFORM 4600-WRITE-PARA
+                             THRU 4600-WRITE-PARA-EXIT.
+       4500-CALCULATION-PARA-EXIT.
+            EXIT.
+       4600-WRITE-PARA.
+            MOVE SPACES TO TO001-OUTREC.
+            EVALUATE WS-CLASS
+               WHEN 'SCH1' WHEN 'SCH3'
+                   MOVE IN-MED-CODE       TO OUT-MED-CODE
+                   MOVE NEW-QUANTITY      TO OUT-QUANTITY
+                   MOVE IN-EXPIRY-STATUS  TO OUT-EXPIRY-STATUS
+                   MOVE ORDER-STATUS      TO OUT-ORDER-STATUS
+                   MOVE WS-CLASS          TO OUT-CLASS
+                   MOVE IN-RATE-PER-NO    TO OUT-RATE-PER-NO
+                   MOVE WS-DISC-RATE      TO OUT-DISC-RATE-PER-NO
+                   MOVE WS-TOT-PRICE      TO OUT-TOT-PRICE
+                   WRITE TO001-OUTREC
+                   DISPLAY " WRITE "
+               IF NOT TO001-SUCC
+                 IF FS-KSDS-DUPKEY
+                     DISPLAY 'KSDS DUPKEY' OUT-MED-CODE
+                 ELSE
+                     DISPLAY 'KSDS WRITE ERROR' WS-KSF
+                 END-IF
+               END-IF
+             WHEN 'SCH2'
+                   MOVE IN-MED-CODE       TO VL-MED-CODE
+                   MOVE NEW-QUANTITY      TO VL-QUANTITY
+                   MOVE IN-EXPIRY-STATUS  TO VL-EXPIRY-STATUS
+                   MOVE ORDER-STATUS      TO VL-ORDER-STATUS
+                   MOVE WS-CLASS          TO VL-CLASS
+                   MOVE IN-RATE-PER-NO    TO VL-RATE-PER-NO
+                   MOVE WS-DISC-RATE      TO VL-DISC-RATE
+                   MOVE WS-TOT-PRICE      TO VL-TOT-PRICE
+                   WRITE TO002-OUTREC
+                   DISPLAY "WRITE2 "
+                   IF NOT TO002-SUCC
+                      DISPLAY 'SCH2 WRITE ERROR' WS-VAL
+                   END-IF
+             WHEN OTHER
+                EXIT
+               END-EVALUATE.
+       4600-WRITE-PARA-EXIT.
+            EXIT.
+       6000-CLOSE-PARA.
+            CLOSE TI001-INFILE.
+            EVALUATE TRUE
+               WHEN TI001-SUCC
+                 DISPLAY "CLOSE INPUT SUCCESS"
+               WHEN OTHER
+                 DISPLAY "CLOSE INPUT UNSUCCES" WS-INP
+                 STOP RUN
+            END-EVALUATE.
+            CLOSE TO001-OUTFILE1.
+            EVALUATE TRUE
+               WHEN TO001-SUCC
+                 DISPLAY "CLOSE KS-OUTPUT SUCCESS"
+               WHEN OTHER
+                 DISPLAY "CLOSE KS-OUTPUT UNSUCCES" WS-KSF
+                 STOP RUN
+            END-EVALUATE.
+            CLOSE TO002-OUTFILE2.
+            EVALUATE TRUE
+               WHEN TO002-SUCC
+                 DISPLAY "CLOSE VAL-OUTPUT SUCCESS"
+               WHEN OTHER
+                 DISPLAY "CLOSE VAL-OUTPUT UNSUCCES" WS-VAL
+                 STOP RUN
+            END-EVALUATE.
+            CLOSE TO003-OUTFILE3.
+            EVALUATE TRUE
+               WHEN TO003-SUCC
+                 DISPLAY "CLOSE ERR-OUTPUT SUCCESS"
+               WHEN OTHER
+                 DISPLAY "CLOSE ERR-OUTPUT UNSUCCES" WS-ERR
+                 STOP RUN
+            END-EVALUATE.
+       6000-CLOSE-PARA-EXIT.
+            EXIT.
+       9000-TERMINATION-PARA.
+            EXIT.
+       9000-TERMINATION-PARA-EXIT.
+            STOP RUN.
+
