@@ -1,3 +1,4 @@
+*******my mini project******
        IDENTIFICATION DIVISION.
        PROGRAM-ID. COBOL.
        ENVIRONMENT DIVISION.
@@ -279,4 +280,5 @@
             EXIT.
        9000-TERMINATION-PARA-EXIT.
             STOP RUN.
+
 
